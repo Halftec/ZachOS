@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Zach Center
+Comment=Overlay levels, updates, driver rollback and app installs
+Exec=/usr/local/bin/zach-center
+Icon=zachos-logo
+Categories=Settings;System;
+Terminal=false

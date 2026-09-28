@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = plymouth
+
+[Action]
+Description = Applying ZachOS's plymouth theme config and watermark...
+When = PostTransaction
+Depends = coreutils
+Exec = /usr/bin/bash -c "install -d /etc/plymouth /usr/share/plymouth/themes/spinner; cp -f /usr/share/zachos/plymouthd.conf /etc/plymouth/plymouthd.conf; cp -f /usr/share/zachos/plymouth-watermark.png /usr/share/plymouth/themes/spinner/watermark.png"
