@@ -1,0 +1,14 @@
+[General]
+ColorScheme=ZachOS
+Name=ZachOS
+font=Inter,10,-1,5,50,0,0,0,0,0
+menuFont=Inter,10,-1,5,50,0,0,0,0,0
+toolBarFont=Inter,9,-1,5,50,0,0,0,0,0
+smallestReadableFont=Inter,8,-1,5,50,0,0,0,0,0
+
+[Icons]
+Theme=Tela-circle-red-dark
+
+[KDE]
+LookAndFeelPackage=org.zachos.desktop
+widgetStyle=kvantum

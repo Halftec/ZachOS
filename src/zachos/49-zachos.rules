@@ -1,0 +1,14 @@
+// ZachOS: let the update-lock and driver-rollback tools ask for the admin
+// password directly, with a clear description, instead of falling back to
+// polkit's generic "run this program as root" prompt.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec") {
+        var prog = action.lookup("program");
+        if (prog == "/usr/lib/zachos/zach-update-apply") {
+            return polkit.Result.AUTH_ADMIN;
+        }
+        if (prog == "/usr/lib/zachos/zach-driver-rollback") {
+            return polkit.Result.AUTH_ADMIN;
+        }
+    }
+});

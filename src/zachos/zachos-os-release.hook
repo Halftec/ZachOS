@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = systemd
+Target = filesystem
+
+[Action]
+Description = Branding /etc/os-release and /etc/issue as ZachOS...
+When = PostTransaction
+Depends = coreutils
+Exec = /usr/bin/bash -c "cp -f /usr/share/zachos/os-release /etc/os-release; cp -f /usr/share/zachos/issue /etc/issue"

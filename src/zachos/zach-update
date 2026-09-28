@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Command-line front end for the update lock. Same effect as the button in
+# Zach Center's Updates tab: nothing applies until this is run by hand.
+set -euo pipefail
+
+case "${1:-}" in
+    ""|check)
+        echo "Checking for updates (nothing will be installed)..."
+        checkupdates || echo "Up to date, or offline."
+        ;;
+    apply|--apply)
+        exec pkexec /usr/lib/zachos/zach-update-apply
+        ;;
+    *)
+        echo "usage: zach-update [check|apply]" >&2
+        exit 2
+        ;;
+esac

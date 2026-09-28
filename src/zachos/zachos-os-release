@@ -1,0 +1,11 @@
+NAME="ZachOS"
+PRETTY_NAME="ZachOS"
+ID=zachos
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="1;31"
+HOME_URL="https://example.invalid/"
+DOCUMENTATION_URL="https://example.invalid/"
+SUPPORT_URL="https://example.invalid/"
+BUG_REPORT_URL="https://example.invalid/"
+LOGO=zachos

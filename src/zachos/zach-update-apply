@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# The ONLY path that is allowed to touch system packages on ZachOS.
+# Runs as root via pkexec, triggered solely by the "Update everything now"
+# button in Zach Center (or `zach-update` on the command line) - never on a
+# timer, never on login, never in the background.
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    echo "zach-update-apply must run as root (use pkexec or sudo)." >&2
+    exit 1
+fi
+
+echo "==> Saving a driver restore point before touching anything..."
+/usr/lib/zachos/zach-driver-rollback --snapshot
+
+echo "==> Refreshing package databases..."
+pacman -Sy
+
+echo "==> Applying updates..."
+pacman -Su --noconfirm
+
+mkdir -p /var/lib/zachos
+date '+%Y-%m-%d %H:%M' > /var/lib/zachos/last-update
+
+echo
+echo "Done. Nothing will restart on its own - reboot whenever you're ready."

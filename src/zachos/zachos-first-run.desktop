@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=ZachOS first-login setup
+NoDisplay=true
+Exec=/usr/lib/zachos/first-login.sh
+X-KDE-autostart-phase=1

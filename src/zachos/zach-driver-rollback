@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# ZachOS driver restore points + one-click rollback.
+# Runs as root (invoked via pkexec from Zach Center, or directly with sudo).
+#
+#   zach-driver-rollback --snapshot          save a restore point of the current driver versions
+#   zach-driver-rollback --previous          roll back to the newest restore point BEFORE this one
+#   zach-driver-rollback --to <listfile>     roll back to a specific restore point
+#   zach-driver-rollback --hold on|off       pin/unpin driver packages so updates skip them
+set -euo pipefail
+
+HIST_DIR=/var/lib/zachos/driver-history
+PKG_LIST=/usr/share/zachos/driver-packages.list
+HOLD_CONF=/etc/pacman.d/zachos-hold.conf
+KEEP=10
+
+if [[ $EUID -ne 0 ]]; then
+    echo "zach-driver-rollback must run as root (use pkexec or sudo)." >&2
+    exit 1
+fi
+
+mkdir -p "$HIST_DIR"
+
+driver_pkgs() {
+    grep -v '^\s*#' "$PKG_LIST" | grep -v '^\s*$'
+}
+
+installed_pkgs() {
+    # Only the ones actually installed, in "name version" form.
+    pacman -Q $(driver_pkgs) 2>/dev/null || true
+}
+
+cache_files_for() {
+    # Newest cached package file for name==version, across all pacman cache dirs.
+    local name=$1 ver=$2
+    ls -t /var/cache/pacman/pkg/"${name}-${ver}"-*.pkg.tar.* 2>/dev/null | head -1 || true
+}
+
+snapshot() {
+    local stamp file
+    stamp=$(date +%Y%m%d-%H%M%S)
+    file="$HIST_DIR/$stamp.list"
+    {
+        echo "# $(date '+%Y-%m-%d %H:%M:%S')"
+        installed_pkgs
+    } > "$file"
+    # Prune old restore points, keep the newest $KEEP.
+    ls -t "$HIST_DIR"/*.list 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
+    echo "Saved driver restore point: $stamp"
+}
+
+restore_from() {
+    local file=$1
+    [[ -f "$file" ]] || { echo "No such restore point: $file" >&2; exit 1; }
+
+    echo "==> Snapshotting current drivers first, in case this rollback needs undoing..."
+    snapshot
+
+    echo "==> Restoring drivers from $(basename "$file")"
+    local missing=() to_install=()
+    while read -r name ver; do
+        [[ -z "${name:-}" || "$name" == \#* ]] && continue
+        local cur
+        cur=$(pacman -Q "$name" 2>/dev/null | awk '{print $2}' || true)
+        if [[ "$cur" == "$ver" ]]; then
+            continue
+        fi
+        local cached
+        cached=$(cache_files_for "$name" "$ver")
+        if [[ -n "$cached" ]]; then
+            to_install+=("$cached")
+        else
+            missing+=("$name-$ver")
+        fi
+    done < "$file"
+
+    if [[ ${#to_install[@]} -gt 0 ]]; then
+        pacman -U --noconfirm "${to_install[@]}"
+    else
+        echo "Nothing to change - already at those versions, or none were cached."
+    fi
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo
+        echo "Could not restore (no longer in the package cache, so a fresh copy is needed):"
+        printf '  - %s\n' "${missing[@]}"
+        echo "These will be reinstalled at their CURRENT version instead of the old one."
+    fi
+
+    echo
+    echo "Driver rollback complete. Restart to load the restored drivers."
+}
+
+rollback_previous() {
+    local latest prev
+    latest=$(ls -t "$HIST_DIR"/*.list 2>/dev/null | head -1 || true)
+    prev=$(ls -t "$HIST_DIR"/*.list 2>/dev/null | sed -n 2p || true)
+    if [[ -z "$prev" ]]; then
+        echo "No earlier restore point to roll back to yet." >&2
+        exit 1
+    fi
+    restore_from "$prev"
+}
+
+set_hold() {
+    local mode=$1
+    if [[ "$mode" == "on" ]]; then
+        {
+            echo "# Managed by Zach Center. Pins driver packages so pacman -Syu skips them."
+            echo "IgnorePkg = $(driver_pkgs | tr '\n' ' ')"
+        } > "$HOLD_CONF"
+        echo "Drivers held - updates will skip them until you turn this off."
+    else
+        # Truncate, don't remove: pacman.conf Includes this file unconditionally,
+        # and errors out if it's missing.
+        {
+            echo "# Managed by Zach Center. Empty = nothing held."
+        } > "$HOLD_CONF"
+        echo "Drivers unheld - updates will include them again."
+    fi
+}
+
+case "${1:-}" in
+    --snapshot) snapshot ;;
+    --previous) rollback_previous ;;
+    --to) restore_from "${2:?usage: --to <restore point file>}" ;;
+    --hold) set_hold "${2:?usage: --hold on|off}" ;;
+    *) echo "usage: zach-driver-rollback [--snapshot|--previous|--to FILE|--hold on|off]" >&2; exit 2 ;;
+esac

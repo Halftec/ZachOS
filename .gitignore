@@ -1,0 +1,6 @@
+# Build output - regenerate with ./build.sh
+output/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

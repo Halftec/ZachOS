@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# ZachOS installer: wipes one disk, pacstraps a fresh ZachOS onto it, and
+# copies this live system's own ZachOS files onto the new install - so the
+# installed system is exactly what you were just testing in the live ISO.
+#
+# Deliberately simple: one disk, GPT, ESP + a single btrfs root, GRUB for
+# both UEFI and BIOS. Run from the live session as root (Zach Center's
+# System tab launches this via `sudo` in a terminal).
+set -euo pipefail
+
+PKGLIST=/usr/share/zachos/packages.x86_64
+# Files/dirs copied from the running live system onto the freshly pacstrapped
+# install, so the target gets Zach Center, the update lock, driver rollback,
+# the overlay tooling etc. without needing a separate package for them.
+OVERLAY_PATHS=(
+    /usr/lib/zachos
+    /usr/local/bin/zach-update
+    /usr/local/bin/zach-driver-rollback
+    /usr/local/bin/zach-overlay
+    /usr/local/bin/zach-center
+    /usr/local/bin/zach-install
+    /usr/share/zachos
+    /usr/share/applications/zach-center.desktop
+    /etc/pacman.conf
+    /etc/pacman.d/zachos-hold.conf
+    /etc/polkit-1/rules.d/49-zachos.rules
+    /etc/NetworkManager/conf.d/zachos-iwd.conf
+    /etc/xdg/kdeglobals
+    /etc/xdg/kcminputrc
+    /etc/xdg/konsolerc
+    /etc/skel/.config/Kvantum
+    /usr/share/konsole/ZachOS.colorscheme
+    /usr/share/konsole/ZachOS.profile
+    /etc/xdg/autostart/zachos-first-run.desktop
+    /etc/pacman.d/hooks/zachos-os-release.hook
+    /usr/share/zachos/os-release
+    /usr/share/color-schemes/ZachOS.colors
+    /usr/share/wallpapers/ZachOS
+    /usr/share/plasma/look-and-feel/org.zachos.desktop
+    /usr/share/pixmaps/zachos-logo.png
+    /etc/motd
+    /etc/issue
+    /usr/share/sddm/themes/zachos
+    /etc/sddm.conf.d/zachos-theme.conf
+    /etc/plymouth/plymouthd.conf
+    /usr/share/plymouth/themes/spinner/watermark.png
+)
+# Not copied on purpose: /etc/sddm.conf.d/zachos-autologin.conf - a real
+# install should show the login screen, not auto-log-in like the live ISO.
+
+if [[ $EUID -ne 0 ]]; then
+    echo "Run this as root: sudo zach-install" >&2
+    exit 1
+fi
+if [[ ! -f "$PKGLIST" ]]; then
+    echo "Can't find $PKGLIST - this only works from the ZachOS live ISO." >&2
+    exit 1
+fi
+
+echo "== ZachOS installer =="
+echo
+echo "Disks:"
+lsblk -dpno NAME,SIZE,MODEL | grep -v '^/dev/sr'
+echo
+read -rp "Disk to erase and install ZachOS to (e.g. /dev/sda): " DISK
+[[ -b "$DISK" ]] || { echo "Not a block device: $DISK" >&2; exit 1; }
+
+echo
+echo "!! EVERYTHING on $DISK will be permanently erased !!"
+read -rp "Type ERASE to continue: " CONFIRM
+[[ "$CONFIRM" == "ERASE" ]] || { echo "Cancelled."; exit 1; }
+
+read -rp "Hostname [zachos]: " HOSTNAME_IN
+HOSTNAME=${HOSTNAME_IN:-zachos}
+read -rp "Username: " USERNAME
+while [[ -z "$USERNAME" ]]; do read -rp "Username: " USERNAME; done
+read -rsp "Password for $USERNAME (and root): " PASSWORD; echo
+read -rsp "Confirm password: " PASSWORD2; echo
+[[ "$PASSWORD" == "$PASSWORD2" ]] || { echo "Passwords didn't match." >&2; exit 1; }
+
+ESP="${DISK}1"; ROOT="${DISK}2"
+[[ "$DISK" == *nvme* || "$DISK" == *mmcblk* ]] && { ESP="${DISK}p1"; ROOT="${DISK}p2"; }
+
+echo "==> Partitioning $DISK (GPT: 1GiB ESP + rest as btrfs root)..."
+sgdisk --zap-all "$DISK"
+parted -s "$DISK" mklabel gpt \
+    mkpart ESP fat32 1MiB 1025MiB set 1 esp on \
+    mkpart root btrfs 1025MiB 100%
+partprobe "$DISK"; sleep 2
+
+mkfs.fat -F32 -n ZACHOS_ESP "$ESP"
+mkfs.btrfs -f -L zachos "$ROOT"
+
+echo "==> Mounting..."
+mount "$ROOT" /mnt
+mkdir -p /mnt/boot
+mount "$ESP" /mnt/boot
+
+echo "==> Installing packages (this is the slow part)..."
+mapfile -t PKGS < <(grep -v '^\s*#' "$PKGLIST" | grep -v '^\s*$')
+pacstrap -K /mnt "${PKGS[@]}"
+
+genfstab -U /mnt >> /mnt/etc/fstab
+
+echo "==> Copying ZachOS tooling from the live system..."
+for p in "${OVERLAY_PATHS[@]}"; do
+    if [[ -e "$p" ]]; then
+        install -d "/mnt$(dirname "$p")"
+        cp -a "$p" "/mnt$p"
+    fi
+done
+
+echo "==> Configuring the new install..."
+arch-chroot /mnt /bin/bash -euo pipefail -c '
+    ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+    hwclock --systohc
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+    locale-gen
+    echo "LANG=en_US.UTF-8" > /etc/locale.conf
+    echo "'"$HOSTNAME"'" > /etc/hostname
+    printf "127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t'"$HOSTNAME"'.localdomain '"$HOSTNAME"'\n" >> /etc/hosts
+    echo "root:'"$PASSWORD"'" | chpasswd
+    useradd -m -G wheel,input,video,audio,storage,optical,network,power -s /usr/bin/zsh "'"$USERNAME"'"
+    echo "'"$USERNAME"':'"$PASSWORD"'" | chpasswd
+    sed -i "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" /etc/sudoers
+    systemctl enable NetworkManager iwd bluetooth sddm
+    sed -i "s/\(HOOKS=(.*\bkms\b\)/\1 plymouth/" /etc/mkinitcpio.conf
+    sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\"/" /etc/default/grub
+    mkinitcpio -P
+    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ZachOS --removable
+    grub-install --target=i386-pc "'"$DISK"'" || true
+    grub-mkconfig -o /boot/grub/grub.cfg
+'
+
+echo "==> Done. Unmounting..."
+umount -R /mnt
+
+echo
+echo "ZachOS is installed on $DISK. Remove the ISO and restart."

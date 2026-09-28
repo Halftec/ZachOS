@@ -1,0 +1,10 @@
+{
+    "KPlugin": {
+        "Id": "org.zachos.desktop",
+        "Name": "ZachOS",
+        "Description": "The default ZachOS look and feel: dark, red-accented, minimal bottom panel.",
+        "Version": "1.0",
+        "Authors": [ { "Name": "ZachOS" } ]
+    },
+    "KPackageStructure": "Plasma/LookAndFeel"
+}
