@@ -15,6 +15,9 @@ done
 
 lookandfeeltool -a org.zachos.desktop >/dev/null 2>&1
 plasma-apply-layouttemplate org.zachos.desktop >/dev/null 2>&1
+# Belt and suspenders: set the wallpaper directly too, rather than relying on
+# the look-and-feel/layout-template mechanisms alone to have applied it.
+plasma-apply-wallpaperimage /usr/share/wallpapers/ZachOS/contents/images/1920x1080.png >/dev/null 2>&1
 
 mkdir -p "$(dirname "$MARKER")"
 touch "$MARKER"
