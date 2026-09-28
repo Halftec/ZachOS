@@ -1,7 +1,3 @@
-// ZachOS default panel: one slim bottom bar, minimal widgets, nothing extra.
-// Applied on first login via the org.zachos.desktop look-and-feel package,
-// and re-applied by /usr/lib/zachos/first-login.sh via `plasma-apply-layouttemplate`.
-
 var panel = new Panel;
 panel.location = "bottom";
 panel.height = 44;
@@ -34,9 +30,7 @@ clock.currentConfigGroup = ["Appearance"];
 clock.writeConfig("showSeconds", "false");
 clock.writeConfig("dateFormat", "shortDate");
 
-// Applying the layout template rebuilds containments, which can drop the
-// wallpaper the look-and-feel defaults set - so set it here too, explicitly,
-// on every desktop, rather than relying on that first-run-only mechanism.
+// wallpaper kept getting dropped on reapply, just set it directly here too
 var allDesktops = desktops();
 for (var i = 0; i < allDesktops.length; i++) {
     var d = allDesktops[i];

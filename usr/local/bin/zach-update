@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Command-line front end for the update lock. Same effect as the button in
-# Zach Center's Updates tab: nothing applies until this is run by hand.
 set -euo pipefail
 
 case "${1:-}" in

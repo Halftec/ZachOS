@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# The ONLY path that is allowed to touch system packages on ZachOS.
-# Runs as root via pkexec, triggered solely by the "Update everything now"
-# button in Zach Center (or `zach-update` on the command line) - never on a
-# timer, never on login, never in the background.
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then

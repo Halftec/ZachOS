@@ -1,6 +1,4 @@
-# ZachOS driver rollback tracks these packages across updates.
-# Anything listed here gets snapshotted before every "Update everything now",
-# and can be pinned (held) or rolled back from the Drivers tab in Zach Center.
+# tracked for snapshot/rollback
 
 linux-zen
 linux-zen-headers

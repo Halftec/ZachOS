@@ -1,16 +1,3 @@
-"""ZachOS performance overlay settings.
-
-The overlay itself is MangoHud. This module keeps ZachOS's own description of the
-overlay "levels" (like SteamOS's performance levels, but fully editable) in
-~/.config/zachos/overlay.json and turns it into MangoHud's config files:
-
-  ~/.config/MangoHud/MangoHud.conf   hotkeys, fps limit, which level a game starts on
-  ~/.config/MangoHud/presets.conf    one [preset N] section per level
-
-Level 0 is always "Off". MangoHud watches its config file, so changing the
-level while a game is running takes effect immediately.
-"""
-
 import copy
 import json
 import os
@@ -21,7 +8,6 @@ CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
 STATE_FILE = CONFIG_HOME / "zachos" / "overlay.json"
 MANGO_DIR = CONFIG_HOME / "MangoHud"
 
-# (MangoHud option, label, group)
 METRICS = [
     ("fps", "FPS", "Performance"),
     ("lows", "1% / 0.1% lows", "Performance"),
@@ -62,7 +48,7 @@ METRICS = [
 METRIC_KEYS = [m[0] for m in METRICS]
 GROUPS = ["Performance", "CPU", "GPU", "Memory", "System"]
 
-# MangoHud draws these on the CPU / GPU rows, so the row has to be on for them to show.
+# these need the cpu/gpu row toggled on or they won't render
 CPU_ROW = {"cpu_temp", "cpu_power", "cpu_mhz"}
 GPU_ROW = {"gpu_temp", "gpu_junction_temp", "gpu_mem_temp", "gpu_power",
            "gpu_core_clock", "gpu_mem_clock", "gpu_fan"}
@@ -140,7 +126,6 @@ def level_ids(state):
 
 
 def level_cycle(state):
-    """Level order for MangoHud's cycle hotkey, starting at the start level."""
     ids = ["0"] + level_ids(state)
     start = str(state.get("start_level", 0))
     if start not in ids:
@@ -195,7 +180,7 @@ def write_mangohud(state):
         "reload_cfg=Shift_L+F4",
         f"fps_limit={int(state['fps_limit'])}",
     ]
-    # Written last: MangoHud reloads when this file changes, by which time presets.conf is current.
+    # write this one last, mangohud reloads when it changes
     (MANGO_DIR / "MangoHud.conf").write_text("\n".join(conf) + "\n")
 
 

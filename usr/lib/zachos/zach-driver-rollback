@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# ZachOS driver restore points + one-click rollback.
-# Runs as root (invoked via pkexec from Zach Center, or directly with sudo).
-#
-#   zach-driver-rollback --snapshot          save a restore point of the current driver versions
-#   zach-driver-rollback --previous          roll back to the newest restore point BEFORE this one
-#   zach-driver-rollback --to <listfile>     roll back to a specific restore point
-#   zach-driver-rollback --hold on|off       pin/unpin driver packages so updates skip them
 set -euo pipefail
 
 HIST_DIR=/var/lib/zachos/driver-history
@@ -25,12 +18,10 @@ driver_pkgs() {
 }
 
 installed_pkgs() {
-    # Only the ones actually installed, in "name version" form.
     pacman -Q $(driver_pkgs) 2>/dev/null || true
 }
 
 cache_files_for() {
-    # Newest cached package file for name==version, across all pacman cache dirs.
     local name=$1 ver=$2
     ls -t /var/cache/pacman/pkg/"${name}-${ver}"-*.pkg.tar.* 2>/dev/null | head -1 || true
 }
@@ -43,7 +34,6 @@ snapshot() {
         echo "# $(date '+%Y-%m-%d %H:%M:%S')"
         installed_pkgs
     } > "$file"
-    # Prune old restore points, keep the newest $KEEP.
     ls -t "$HIST_DIR"/*.list 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
     echo "Saved driver restore point: $stamp"
 }
@@ -105,15 +95,14 @@ set_hold() {
     local mode=$1
     if [[ "$mode" == "on" ]]; then
         {
-            echo "# Managed by Zach Center. Pins driver packages so pacman -Syu skips them."
+            echo "# held, updates skip these until you turn this off"
             echo "IgnorePkg = $(driver_pkgs | tr '\n' ' ')"
         } > "$HOLD_CONF"
         echo "Drivers held - updates will skip them until you turn this off."
     else
-        # Truncate, don't remove: pacman.conf Includes this file unconditionally,
-        # and errors out if it's missing.
+        # don't delete the file, just empty it out - pacman.conf includes it always
         {
-            echo "# Managed by Zach Center. Empty = nothing held."
+            echo "# nothing held"
         } > "$HOLD_CONF"
         echo "Drivers unheld - updates will include them again."
     fi

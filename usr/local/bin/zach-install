@@ -1,17 +1,7 @@
 #!/usr/bin/env bash
-# ZachOS installer: wipes one disk, pacstraps a fresh ZachOS onto it, and
-# copies this live system's own ZachOS files onto the new install - so the
-# installed system is exactly what you were just testing in the live ISO.
-#
-# Deliberately simple: one disk, GPT, ESP + a single btrfs root, GRUB for
-# both UEFI and BIOS. Run from the live session as root (Zach Center's
-# System tab launches this via `sudo` in a terminal).
 set -euo pipefail
 
 PKGLIST=/usr/share/zachos/packages.x86_64
-# Files/dirs copied from the running live system onto the freshly pacstrapped
-# install, so the target gets Zach Center, the update lock, driver rollback,
-# the overlay tooling etc. without needing a separate package for them.
 OVERLAY_PATHS=(
     /usr/lib/zachos
     /usr/local/bin/zach-update
@@ -45,8 +35,7 @@ OVERLAY_PATHS=(
     /etc/plymouth/plymouthd.conf
     /usr/share/plymouth/themes/spinner/watermark.png
 )
-# Not copied on purpose: /etc/sddm.conf.d/zachos-autologin.conf - a real
-# install should show the login screen, not auto-log-in like the live ISO.
+# not copying zachos-autologin.conf on purpose, real installs should show login
 
 if [[ $EUID -ne 0 ]]; then
     echo "Run this as root: sudo zach-install" >&2

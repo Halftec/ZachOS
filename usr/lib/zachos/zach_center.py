@@ -1,13 +1,3 @@
-"""Zach Center: the ZachOS control panel.
-
-Tabs:
-  Overlay  - SteamOS-style performance overlay levels, editable like RivaTuner
-  Apps     - one-click Flatpak installs, kept out of the base image
-  Updates  - the update lock: nothing updates until you press the button
-  Drivers  - GPU info, driver restore points and one-click rollback
-  System   - about this install, and the disk installer on the live ISO
-"""
-
 import os
 import re
 import subprocess
@@ -77,8 +67,6 @@ def installed_versions(pkgs):
 
 
 class ProcessLog(QPlainTextEdit):
-    """Runs a command and streams its output; used for every root action."""
-
     def __init__(self):
         super().__init__()
         self.setReadOnly(True)
@@ -115,7 +103,6 @@ class ProcessLog(QPlainTextEdit):
             self.on_done(code)
 
 
-# --------------------------------------------------------------------------- overlay
 
 SAMPLE = {
     "gpu_stats": "87%", "gpu_temp": "71C", "gpu_junction_temp": "84C", "gpu_mem_temp": "76C",
@@ -167,8 +154,6 @@ def preview_rows(lvl):
 
 
 class OverlayPreview(QWidget):
-    """A mock game screen showing exactly what the level will draw, and where."""
-
     def __init__(self):
         super().__init__()
         self.level = None
@@ -321,7 +306,6 @@ class OverlayTab(QWidget):
         hint.setObjectName("muted")
         tl.addWidget(hint, 2, 0, 1, 4)
 
-        # level list
         left = QWidget()
         ll = QVBoxLayout(left)
         ll.setContentsMargins(0, 0, 0, 0)
@@ -336,7 +320,6 @@ class OverlayTab(QWidget):
             row.addWidget(b)
         ll.addLayout(row)
 
-        # level editor
         right = QWidget()
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
@@ -434,7 +417,6 @@ class OverlayTab(QWidget):
         self.save_timer.timeout.connect(self._save)
         self._refresh(select=overlay.level_ids(self.state)[0])
 
-    # -- helpers
     def _refresh(self, select=None):
         self.loading = True
         self.toggle_hud.setText(self.state["toggle_hud"])
@@ -574,11 +556,9 @@ class OverlayTab(QWidget):
             QMessageBox.warning(self, "Test", "vkcube is not installed.")
 
 
-# --------------------------------------------------------------------------- apps
 
 FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
 
-# Kept out of the ISO on purpose: one click away instead of bundled.
 CATALOG = {
     "Gaming": [
         ("com.heroicgameslauncher.hgl", "Heroic", "Epic, GOG and Amazon games"),
@@ -638,8 +618,6 @@ class AppRow(QWidget):
 
 
 class AppsTab(QWidget):
-    """One-click installs from Flathub. Per-user, no password, can't touch the base system."""
-
     def __init__(self):
         super().__init__()
         intro = QLabel("ZachOS ships lean. Grab anything else here - apps install just for you "
@@ -757,7 +735,6 @@ class AppsTab(QWidget):
             self.log.appendPlainText("\nThat didn't work - check your internet connection.")
 
 
-# --------------------------------------------------------------------------- updates
 
 class UpdatesTab(QWidget):
     def __init__(self):
@@ -840,7 +817,6 @@ class UpdatesTab(QWidget):
         if QMessageBox.question(self, "Update", msg) != QMessageBox.Yes:
             return
         self.update_btn.setEnabled(False)
-        # System packages need root; the user's own Flatpak apps update as the user.
         self.log.start("/usr/bin/bash", ["-c", f"pkexec {LIB}/zach-update-apply && "
                                          "{ command -v flatpak >/dev/null || exit 0; "
                                          "echo '==> Updating your apps (Flatpak)'; "
@@ -853,7 +829,6 @@ class UpdatesTab(QWidget):
             QMessageBox.information(self, "Update", "Update finished.\nRestart whenever you're ready.")
 
 
-# --------------------------------------------------------------------------- drivers
 
 def gpus():
     out = run(["lspci", "-nnk"])
@@ -981,7 +956,6 @@ class DriversTab(QWidget):
         self._root(["--hold", "on" if checked else "off"])
 
 
-# --------------------------------------------------------------------------- system
 
 def os_info():
     info = {}
